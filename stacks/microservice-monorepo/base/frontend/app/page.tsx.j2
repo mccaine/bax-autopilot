@@ -1,0 +1,12 @@
+export default function Home() {
+  return (
+    <main style={{ padding: "3rem", maxWidth: 720, margin: "0 auto" }}>
+      <h1>{{ app_name }}</h1>
+      <p>{{ summary }}</p>
+      <p style={{ color: "#666" }}>
+        Scaffolded by BAX Autopilot. The coder agent fills in real pages and wires
+        them to the API at <code>{process.env.NEXT_PUBLIC_API_URL}</code>.
+      </p>
+    </main>
+  );
+}

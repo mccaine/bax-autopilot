@@ -1,0 +1,61 @@
+# BAX Autopilot — harness services (runs locally on `bax`).
+# Ollama runs on the HOST (native Metal GPU); the orchestrator reaches it at
+# host.docker.internal. Generated apps get their own compose files in workspaces/.
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    env_file: .env
+    environment:
+      # Ensure the container talks to the compose Postgres, not host.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-autopilot}:${POSTGRES_PASSWORD:-autopilot}@postgres:5432/${POSTGRES_DB:-autopilot}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+    ports:
+      - "8080:8080"
+    volumes:
+      # docker-out-of-docker: spawn sandbox containers + run generated-app compose.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Generated apps live here and must be reachable by both the orchestrator
+      # container and the host docker daemon at the SAME absolute path.
+      - ${PWD}/workspaces:${PWD}/workspaces
+      - ${PWD}/runs:/app/runs
+    working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-autopilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-autopilot}
+      POSTGRES_DB: ${POSTGRES_DB:-autopilot}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-autopilot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Optional local-only control UI. Enable with:  docker compose --profile ui up
+  dashboard:
+    build: ./dashboard
+    profiles: ["ui"]
+    env_file: .env
+    environment:
+      ORCHESTRATOR_URL: http://orchestrator:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - orchestrator
+
+volumes:
+  pgdata:

@@ -1,0 +1,35 @@
+# {{ app_name }}
+
+{{ summary }}
+
+Generated autonomously by **BAX Autopilot**. Containerized microservice monorepo:
+Next.js frontend + Node.js service(s) + PostgreSQL.
+
+## Run locally
+
+```bash
+make up      # build + start everything (docker compose, waits for health)
+make test    # run service tests against the running stack
+make logs
+make down
+```
+
+Services:
+{% for f in frontends %}
+- **{{ f.name }}** (Next.js) — http://localhost:{{ f.port | default(3000) }}
+{% endfor %}
+{% for s in node_services %}
+- **{{ s.name }}** (Node.js) — http://localhost:{{ s.port | default(4000) }} · `GET /healthz`
+{% endfor %}
+- **db** (PostgreSQL) — localhost:5432
+
+## Deploy (GCP Cloud Run)
+
+Terraform in `infra/terraform/` provisions Artifact Registry, Cloud SQL (Postgres),
+and one Cloud Run service per app service.
+
+```bash
+cd infra/terraform
+terraform init
+terraform plan -var project_id=YOUR_PROJECT -var region={{ region }}
+```
