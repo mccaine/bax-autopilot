@@ -9,12 +9,13 @@ report rather than looping forever.
 from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import Send
 
 from autopilot.agents import (
     architect_node,
+    coder_worker_node,
     deploy_node,
     fix_node,
-    implement_node,
     integrate_node,
     review_node,
     scaffold_node,
@@ -34,6 +35,26 @@ def _blocked_node(state: dict) -> dict:
         "error": reason,
         "journal": [f"BLOCKED: {reason}"],
     }
+
+
+def _dispatch_implement(state: dict):
+    """Fan out one `coder_worker` per task (parallel), or skip to `test` if there
+    are no tasks. Each Send carries only what a worker needs — the worker returns
+    reducer-merged results into the shared state."""
+    tasks = [t for t in state.get("tasks", []) if not t.get("done")]
+    if not tasks:
+        return "test"
+    return [
+        Send(
+            "coder_worker",
+            {
+                "workspace": state["workspace"],
+                "spec": state.get("spec", {}),
+                "current_task": t,
+            },
+        )
+        for t in tasks
+    ]
 
 
 def _route_after_test(state: dict) -> str:
@@ -64,7 +85,7 @@ def build_graph(checkpointer=None):
     g.add_node("spec", spec_node)
     g.add_node("architect", architect_node)
     g.add_node("scaffold", scaffold_node)
-    g.add_node("implement", implement_node)
+    g.add_node("coder_worker", coder_worker_node)
     g.add_node("test", test_node)
     g.add_node("review", review_node)
     g.add_node("fix", fix_node)
@@ -75,8 +96,10 @@ def build_graph(checkpointer=None):
     g.add_edge(START, "spec")
     g.add_edge("spec", "architect")
     g.add_edge("architect", "scaffold")
-    g.add_edge("scaffold", "implement")
-    g.add_edge("implement", "test")
+    # Fan out: scaffold → N parallel coder_workers (or straight to test if no tasks).
+    g.add_conditional_edges("scaffold", _dispatch_implement, ["coder_worker", "test"])
+    # Join: all workers in the superstep complete, then test runs once.
+    g.add_edge("coder_worker", "test")
 
     g.add_conditional_edges(
         "test", _route_after_test, {"review": "review", "fix": "fix", "blocked": "blocked"}

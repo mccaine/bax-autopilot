@@ -45,17 +45,17 @@ services:
       timeout: 5s
       retries: 10
 
-  # Optional local-only control UI. Enable with:  docker compose --profile ui up
+  # Control UI — write an intent and kick off a build. Talks to the orchestrator
+  # over the internal network (server-side proxy; no browser CORS).
   dashboard:
     build: ./dashboard
-    profiles: ["ui"]
-    env_file: .env
     environment:
       ORCHESTRATOR_URL: http://orchestrator:8080
     ports:
       - "3000:3000"
     depends_on:
       - orchestrator
+    restart: unless-stopped
 
 volumes:
   pgdata:

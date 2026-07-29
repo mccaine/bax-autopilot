@@ -9,9 +9,10 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-up: ## Build + start the harness (orchestrator + postgres)
+up: ## Build + start the harness (dashboard + orchestrator + postgres)
 	@test -f .env || cp .env.example .env
 	$(COMPOSE) up -d --build
+	@echo "Dashboard:    http://localhost:3000"
 	@echo "Orchestrator: http://localhost:8080  (health: /healthz)"
 
 run: up ## Alias for `up`

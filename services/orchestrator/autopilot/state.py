@@ -44,6 +44,11 @@ class RunState(TypedDict, total=False):
     tasks: list[Task]              # ordered implementation tasks
     workspace: str                 # absolute path to workspaces/<run-id>
 
+    # Fan-out: the single task a coder_worker was dispatched to implement.
+    current_task: Task
+    # Concurrent-safe accumulator of per-worker results ("t1:+3 files").
+    implemented: Annotated[list[str], operator.add]
+
     # ── loop bookkeeping ──────────────────────────────────────────────
     phase: Phase
     status: Status
@@ -78,6 +83,7 @@ def new_run_state(run_id: str, intent: str) -> RunState:
         review_ok=False,
         deploy_ok=False,
         pr_url=None,
+        implemented=[],
         journal=[],
         error=None,
     )

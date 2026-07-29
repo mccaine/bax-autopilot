@@ -1,6 +1,7 @@
 """FastAPI control surface for the orchestrator.
 
-    POST /runs        {"intent": "..."}   → {"run_id": "..."}
+    POST /runs        {"intent": "..."}   → {"run_id", "status", "position"}
+    GET  /runs                             → project list (running/queued/history)
     GET  /runs/{id}                        → status snapshot (phase, journal, pr_url)
     GET  /healthz                          → liveness
 """
@@ -40,8 +41,13 @@ def healthz() -> dict:
 def create_run(req: RunRequest) -> dict:
     if not req.intent.strip():
         raise HTTPException(status_code=422, detail="intent is required")
-    run_id = app.state.runner.start(req.intent.strip())
-    return {"run_id": run_id, "status": "running"}
+    run_id, position = app.state.runner.enqueue(req.intent.strip())
+    return {"run_id": run_id, "status": "queued", "position": position}
+
+
+@app.get("/runs")
+def list_runs() -> dict:
+    return {"projects": app.state.runner.list()}
 
 
 @app.get("/runs/{run_id}")

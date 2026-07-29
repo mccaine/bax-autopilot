@@ -46,15 +46,18 @@ ollama pull llama3.2:3b
 
 # 1. Configure + run the harness
 cp .env.example .env
-make up                   # orchestrator + postgres via docker compose
+make up                   # dashboard + orchestrator + postgres via docker compose
 
-# 2. Kick off a run
+# 2. Kick off a run — from the dashboard or the CLI
+#    Dashboard:  http://localhost:3000   (type an intent, click Start)
 bin/bax "a full-stack todo app with email/password auth and a tasks API"
 # ...or:  make kickoff INTENT="a todo app with auth"
 ```
 
-Generated apps land in `workspaces/<run-id>/`. Run state lives in Postgres;
-logs stream via `make logs`.
+Each intent becomes its own **project** in `workspaces/<run-id>/`. Only one
+project runs at a time — additional intents queue and run in order. Watch
+progress on the dashboard (Running / Queued / History with live journals), or
+`make logs`. Run state lives in Postgres.
 
 ## Layout
 
@@ -63,7 +66,7 @@ logs stream via `make logs`.
 | `docker-compose.yml`, `Makefile`, `bin/bax` | Harness control surface (runs on bax) |
 | `services/orchestrator/` | Python 3.12 + LangGraph agent graph + FastAPI control API |
 | `stacks/microservice-monorepo/` | The generated-app stack template |
-| `dashboard/` | Optional local-only Next.js control UI |
+| `dashboard/` | Next.js control UI — submit intents, watch runs |
 | `workspaces/`, `runs/` | Generated apps + logs (gitignored) |
 
 ## Configuration

@@ -1,8 +1,9 @@
-"""Coder agent: implement each task by writing files into the workspace.
+"""Coder agent: implement tasks by writing files into the workspace.
 
-Fans out over the architect's task list. For each task the coder model is given
-the current file tree + the task and returns a JSON map of ``path -> contents``
-that we write beneath the workspace. Real logic replaces scaffold stubs.
+Runs as a **fan-out worker**: the graph dispatches one ``coder_worker`` per task
+(LangGraph ``Send``), so tasks are implemented in parallel (bounded by
+``max_parallel_coders``). Each worker returns only reducer-keyed fields so the
+concurrent results merge cleanly.
 """
 
 from __future__ import annotations
@@ -35,6 +36,8 @@ Write only files needed for THIS task. Keep them consistent with the existing tr
 
 
 def _implement_one(state: dict, task: dict, ws) -> int:
+    """Implement a single task, writing files. Returns files written. Reusable by
+    both the fan-out worker and any sequential caller."""
     tree = "\n".join(ws.tree())[:6000]
     raw = call_llm(
         "coder",
@@ -60,22 +63,14 @@ def _implement_one(state: dict, task: dict, ws) -> int:
     return written
 
 
-def implement_node(state: dict) -> dict:
-    ws = workspace_for(state)
-    tasks = state.get("tasks", [])
-    total = 0
-    done_lines = []
-    for task in tasks:
-        if task.get("done"):
-            continue
-        n = _implement_one(state, task, ws)
-        task["done"] = True
-        total += n
-        done_lines.append(f"{task.get('id')}:{task.get('service')} (+{n} files)")
+def coder_worker_node(state: dict) -> dict:
+    """Fan-out worker: implement ``state['current_task']`` (a Send payload).
 
-    return {
-        "tasks": tasks,
-        "phase": "test",
-        "steps": state.get("steps", 0) + 1,
-        **journal(f"implement: {total} files across {len(done_lines)} tasks — {', '.join(done_lines)}"),
-    }
+    Returns only reducer-merged keys (``implemented``, ``journal``) so parallel
+    workers don't clobber each other's state.
+    """
+    task = state["current_task"]
+    ws = workspace_for(state)
+    n = _implement_one(state, task, ws)
+    label = f"{task.get('id', '?')}:{task.get('service', '?')} (+{n} files)"
+    return {"implemented": [label], **journal(f"code: {label}")}

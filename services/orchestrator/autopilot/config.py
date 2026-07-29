@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     step_budget: int = 120
     token_budget: int = 0  # 0 = unlimited
 
+    # Bound on parallel coder workers (one GPU serves Ollama — keep modest).
+    max_parallel_coders: int = 3
+
     # ── Deploy gate ───────────────────────────────────────────────────
     deploy: Literal["plan", "apply"] = "plan"
 

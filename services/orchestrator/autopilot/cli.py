@@ -34,7 +34,12 @@ def build(intent: str) -> None:
     graph = build_graph()  # no checkpointer for a one-shot local run
     console.print(f"[bold]run[/bold] {run_id} → {ws}")
     final = graph.invoke(
-        state, {"recursion_limit": 200, "configurable": {"thread_id": run_id}}
+        state,
+        {
+            "recursion_limit": 200,
+            "max_concurrency": settings.max_parallel_coders,
+            "configurable": {"thread_id": run_id},
+        },
     )
 
     console.rule("journal")

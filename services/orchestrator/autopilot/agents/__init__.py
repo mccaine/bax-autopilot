@@ -6,7 +6,7 @@ that LangGraph merges in.
 """
 
 from autopilot.agents.architect import architect_node
-from autopilot.agents.coder import implement_node
+from autopilot.agents.coder import coder_worker_node
 from autopilot.agents.deployer import deploy_node
 from autopilot.agents.fixer import fix_node
 from autopilot.agents.integrator import integrate_node
@@ -19,7 +19,7 @@ __all__ = [
     "spec_node",
     "architect_node",
     "scaffold_node",
-    "implement_node",
+    "coder_worker_node",
     "test_node",
     "review_node",
     "fix_node",
