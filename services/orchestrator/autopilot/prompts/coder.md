@@ -22,10 +22,14 @@ that belong to THIS task and never edit shared/base files.
   filename order on first boot.
 
 **Frontend** (`frontend/`):
-- Add pages as NEW files `frontend/app/<route>/page.tsx` and shared UI as
-  `frontend/components/<Name>.tsx`. Call the API at
-  `process.env.NEXT_PUBLIC_API_URL`.
-- Do NOT edit `frontend/app/layout.tsx` or `frontend/package.json`.
+- Add pages as NEW files `frontend/app/<route>/page.tsx` (App Router auto-routes by
+  directory — each page is its own file) and shared UI as
+  `frontend/components/<Name>.tsx`.
+- Call the API with the shared client: `import { api } from "@/lib/api"` (or `swr`
+  for client-side data). Do NOT hand-roll `fetch(process.env...)` base URLs.
+- The home page is `frontend/app/page.tsx` (a single owner — put other views under
+  their own routes). Do NOT edit `frontend/app/layout.tsx`, `frontend/lib/api.ts`,
+  or `frontend/package.json`. `next`, `react`, `swr` are already installed.
 
 ## General
 - Emit **complete, runnable file contents** — never diffs or `// ...`.

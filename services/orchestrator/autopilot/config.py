@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # Bound on parallel coder workers (one GPU serves Ollama — keep modest).
     max_parallel_coders: int = 3
 
+    # Fast self-check: after patching, the fixer rebuilds (no up/test) and may
+    # re-patch this many times against the build error before the full test run.
+    fix_inner_retries: int = 2
+
     # ── Deploy gate ───────────────────────────────────────────────────
     deploy: Literal["plan", "apply"] = "plan"
 
