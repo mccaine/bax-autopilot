@@ -124,6 +124,15 @@ class Runner:
             name=(last.get("spec", {}) or {}).get("name"),
         )
         self._write_journal(run_id, last.get("journal", []))
+        # Persist the final failure report next to the journal for post-mortems.
+        report = last.get("test_report")
+        if report:
+            try:
+                (Path(self.settings.runs_dir) / f"{run_id}.report.txt").write_text(
+                    report, encoding="utf-8"
+                )
+            except Exception:
+                pass
 
     # ── introspection ─────────────────────────────────────────────────
     def status(self, run_id: str) -> dict[str, Any] | None:
@@ -145,6 +154,11 @@ class Runner:
                     implemented=v.get("implemented", []),
                     journal=v.get("journal", [])[-60:],
                     pr_url=v.get("pr_url", base.get("pr_url")),
+                    # The last build/test failure, so the dashboard can show why
+                    # a run is stuck or blocked.
+                    test_report=(v.get("test_report") or "")[-6000:],
+                    review_notes=v.get("review_notes"),
+                    error=v.get("error"),
                 )
         except Exception:
             pass

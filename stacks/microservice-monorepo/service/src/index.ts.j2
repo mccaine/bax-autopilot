@@ -1,26 +1,50 @@
 import express from "express";
-import pkg from "pg";
+import cors from "cors";
+import { readdirSync } from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { dirname, join } from "node:path";
+import { pool } from "./db.ts";
 
-const { Pool } = pkg;
 const port = Number(process.env.PORT ?? {{ port }});
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 export const app = express();
+app.use(cors());
 app.use(express.json());
 
 // Liveness/readiness endpoint used by docker-compose and Cloud Run healthchecks.
+// Always 200 when the server is up, so the stack becomes healthy even before the
+// DB is migrated — DB readiness is gated by compose `depends_on`.
 app.get("/healthz", async (_req, res) => {
   try {
     await pool.query("SELECT 1");
     res.status(200).json({ status: "ok", service: "{{ service_name }}" });
   } catch {
-    // Server is up even if the DB isn't ready yet — still 200 so the container
-    // is considered live; readiness of the DB is gated by compose depends_on.
     res.status(200).json({ status: "ok", db: "unavailable", service: "{{ service_name }}" });
   }
 });
 
-// The coder agent adds the real routes for this service below.
+// Auto-register every module in ./routes. This lets parallel coder agents each
+// add their own file (routes/<feature>.ts) WITHOUT touching this file — no
+// shared-file races. A route module default-exports `(app, pool) => void`.
+// A single bad route is logged and skipped so it can't take the whole server
+// down (the health gate stays green; the failing feature surfaces in tests).
+const routesDir = join(dirname(fileURLToPath(import.meta.url)), "routes");
+let routeFiles: string[] = [];
+try {
+  routeFiles = readdirSync(routesDir);
+} catch {
+  routeFiles = [];
+}
+for (const file of routeFiles) {
+  if (!/\.(ts|js)$/.test(file) || file.endsWith(".test.ts") || file.endsWith(".d.ts")) continue;
+  try {
+    const mod = await import(pathToFileURL(join(routesDir, file)).href);
+    const register = mod.default ?? mod.register;
+    if (typeof register === "function") register(app, pool);
+  } catch (err) {
+    console.error(`[routes] failed to load ${file}:`, err);
+  }
+}
 
 if (process.env.NODE_ENV !== "test") {
   app.listen(port, () => console.log(`{{ service_name }} listening on :${port}`));

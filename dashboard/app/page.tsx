@@ -19,6 +19,9 @@ type Detail = Project & {
   steps?: number;
   fix_iters?: number;
   implemented?: string[];
+  test_report?: string;
+  review_notes?: string;
+  error?: string;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -267,20 +270,29 @@ function DetailPanel({ detail, onClose }: { detail: Detail; onClose: () => void 
         </p>
       )}
       <h4 style={{ color: "#8a8f98", fontSize: 13, textTransform: "uppercase" }}>Journal</h4>
-      <pre
-        style={{
-          background: "#0b0e14",
-          border: "1px solid #1e2530",
-          borderRadius: 8,
-          padding: 12,
-          fontSize: 12,
-          lineHeight: 1.6,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-        }}
-      >
-        {(detail.journal ?? []).join("\n") || "…"}
-      </pre>
+      <pre style={logBox}>{(detail.journal ?? []).join("\n") || "…"}</pre>
+
+      {detail.test_report && (detail.status === "blocked" || detail.status === "error") && (
+        <>
+          <h4 style={{ color: "#f59e0b", fontSize: 13, textTransform: "uppercase" }}>
+            Last failure
+          </h4>
+          <pre style={{ ...logBox, borderColor: "#f59e0b33" }}>{detail.test_report}</pre>
+        </>
+      )}
     </div>
   );
 }
+
+const logBox: React.CSSProperties = {
+  background: "#0b0e14",
+  border: "1px solid #1e2530",
+  borderRadius: 8,
+  padding: 12,
+  fontSize: 12,
+  lineHeight: 1.6,
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+  maxHeight: 360,
+  overflowY: "auto",
+};
