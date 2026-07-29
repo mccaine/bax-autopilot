@@ -80,6 +80,47 @@ All knobs live in `.env` (see `.env.example`). Highlights:
 | `AUTOPILOT_MAX_FIX_ITERS` | `6` | Build→test→fix loop cap |
 | `AUTOPILOT_DEPLOY` | `plan` | `plan` = terraform validate+plan; `apply` = also apply (needs GCP creds) |
 
+## Reset & maintenance
+
+**Rebuild the service after code changes** (new agents, prompts, template, deps):
+
+```bash
+make rebuild        # rebuild + recreate the orchestrator and dashboard images
+# or `make up` — also rebuilds, and starts postgres if it isn't running
+```
+
+Template changes only affect **newly scaffolded** projects — re-run an intent
+rather than resuming an old one.
+
+**Purge all projects** (wipe the slate — deletes everything about every run):
+
+```bash
+make purge          # then `make up`
+# or in one step:
+make reset          # = purge + up
+```
+
+`make purge` deletes, in order:
+
+1. **Generated-app stacks** — tears down every leftover `autopilot-*` docker
+   compose stack (containers, networks, volumes, and locally-built images).
+2. **Harness DB volume** (`docker compose down -v`) — drops `pgdata`, which holds
+   the **projects registry** *and* the **LangGraph checkpointer** (so run history
+   and resumable state are both gone). The schema is recreated automatically on
+   the next `make up`.
+3. **On-disk artifacts** — `workspaces/*` (generated app code) and `runs/*`
+   (journals + failure reports). The `.gitkeep` files are preserved.
+
+> ⚠️ `make purge` runs `docker compose down -v` — it removes the harness Postgres
+> volume. It does **not** touch unrelated Docker resources.
+
+**Reclaim disk from generated-app images** (they accumulate as you iterate):
+
+```bash
+docker images --format '{{.Repository}}:{{.Tag}}' | grep '^autopilot-' | xargs -r docker rmi -f
+docker image prune -f        # optional: remove dangling build layers
+```
+
 ## Development
 
 ```bash

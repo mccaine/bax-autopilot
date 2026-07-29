@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 COMPOSE := docker compose
 
-.PHONY: help up run down logs ps kickoff build-image test fmt lint dev-orchestrator
+.PHONY: help up run down logs ps kickoff build-image test fmt lint dev-orchestrator rebuild purge reset
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -32,6 +32,24 @@ kickoff: ## Start a run:  make kickoff INTENT="a todo app with auth"
 
 build-image: ## Build only the orchestrator image
 	$(COMPOSE) build orchestrator
+
+rebuild: ## Rebuild + restart the orchestrator and dashboard images (after code changes)
+	$(COMPOSE) build orchestrator dashboard
+	$(COMPOSE) up -d --force-recreate orchestrator dashboard
+	@echo "Rebuilt. Dashboard: http://localhost:3000"
+
+purge: ## DANGER: delete ALL projects — db state, workspaces/, runs/, generated-app stacks
+	@echo ">> Tearing down any leftover generated-app stacks…"
+	-@for p in $$(docker compose ls -a --format '{{.Name}}' 2>/dev/null | grep '^autopilot-' || true); do \
+		echo "   down $$p"; docker compose -p "$$p" down -v --rmi local --remove-orphans 2>/dev/null || true; \
+	done
+	@echo ">> Removing harness + database volume (projects + checkpointer state)…"
+	$(COMPOSE) down -v
+	@echo ">> Wiping workspaces/ and runs/ (keeping .gitkeep)…"
+	rm -rf workspaces/* runs/*
+	@echo "Purged. Run 'make up' for a clean start."
+
+reset: purge up ## Full clean slate: purge everything, then rebuild + start
 
 test: ## Run orchestrator unit tests inside the image
 	$(COMPOSE) run --rm --no-deps orchestrator python -m pytest -q
